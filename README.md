@@ -8,6 +8,6 @@ Sobre essa base, foi treinado um modelo de Regressão Logística para probabilid
 
 Por fim, o projeto simula 6 meses de operação em produção, monitorando a degradação de performance do modelo (drift) ao longo do tempo, cenário usado para justificar decisões de retreinamento.
 
-[Dashboards SQL no Databricks] (https://dbc-defb6b12-aeca.cloud.databricks.com/dashboardsv3/01f1958762161dbaac6e671e7bb222c8/published?o=7474649354120297)
+[Dashboards SQL no Databricks](https://dbc-defb6b12-aeca.cloud.databricks.com/dashboardsv3/01f1958762161dbaac6e671e7bb222c8/published?o=7474649354120297)
 
-[Notebook Databricks] (https://dbc-defb6b12-aeca.cloud.databricks.com/editor/notebooks/2429712571117867?o=7474649354120297)
+[Notebook Databricks](https://dbc-defb6b12-aeca.cloud.databricks.com/editor/notebooks/2429712571117867?o=7474649354120297)
