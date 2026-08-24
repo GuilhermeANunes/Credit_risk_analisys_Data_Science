@@ -1,0 +1,735 @@
+{
+  "datasets": [
+    {
+      "name": "a0acfe41",
+      "displayName": "Gold KPIs Carteira",
+      "queryLines": [
+        "SELECT segmento, uf, qtd_contratos, carteira_total, ticket_medio, qtd_inadimplentes, taxa_inadimplencia\r\n",
+        "FROM workspace.default.gold_kpis_carteira\r\n",
+        "GROUP BY segmento, uf, qtd_contratos, carteira_total, ticket_medio, qtd_inadimplentes, taxa_inadimplencia"
+      ],
+      "catalog": "workspace",
+      "schema": "default"
+    },
+    {
+      "name": "2c13920a",
+      "displayName": "Vintage Analyses",
+      "queryLines": [
+        "WITH flags AS (\r\n",
+        "    SELECT\r\n",
+        "        id_proposta,\r\n",
+        "        mes_originacao,\r\n",
+        "        mob,\r\n",
+        "        CASE WHEN dias_atraso > 90 THEN 1 ELSE 0 END AS inadimplente_mes,\r\n",
+        "        MAX(CASE WHEN dias_atraso > 90 THEN 1 ELSE 0 END) OVER (\r\n",
+        "            PARTITION BY id_proposta ORDER BY mob\r\n",
+        "            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\r\n",
+        "        ) AS ever_inadimplente\r\n",
+        "    FROM workspace.default.bronze_historico_mensal\r\n",
+        "),\r\n",
+        "vintage AS (\r\n",
+        "    SELECT\r\n",
+        "        mes_originacao,\r\n",
+        "        mob,\r\n",
+        "        COUNT(*) AS qtd_contratos,\r\n",
+        "        SUM(ever_inadimplente) AS qtd_ever_inadimplentes,\r\n",
+        "        ROUND(SUM(ever_inadimplente) / COUNT(*), 4) AS taxa_inadimplencia_acumulada\r\n",
+        "    FROM flags\r\n",
+        "    GROUP BY mes_originacao, mob\r\n",
+        ")\r\n",
+        "SELECT *,\r\n",
+        "    ROUND(\r\n",
+        "        taxa_inadimplencia_acumulada -\r\n",
+        "        LAG(taxa_inadimplencia_acumulada) OVER (PARTITION BY mes_originacao ORDER BY mob),\r\n",
+        "        4\r\n",
+        "    ) AS variacao_taxa_inadimplencia\r\n",
+        "FROM vintage\r\n",
+        "WHERE mob <= 12\r\n",
+        "ORDER BY mes_originacao, mob"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "43d36c49",
+      "displayName": "KPIs",
+      "layout": [
+        {
+          "widget": {
+            "name": "distribuicao",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "sum(qtd_contratos)",
+                      "expression": "SUM(`qtd_contratos`)"
+                    },
+                    {
+                      "name": "uf",
+                      "expression": "`uf`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "frame": {
+                "showTitle": true,
+                "title": "DISTRIBUIÇÃO REGIONAL DE CONTRATOS"
+              },
+              "widgetType": "choropleth-map",
+              "encodings": {
+                "color": {
+                  "fieldName": "sum(qtd_contratos)",
+                  "displayName": "Número de Contratos",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "region": {
+                  "regionType": "mapbox-v4-admin",
+                  "admin0": {
+                    "type": "value",
+                    "value": "Brasil",
+                    "geographicRole": "admin0-name"
+                  },
+                  "admin1": {
+                    "fieldName": "uf",
+                    "type": "field",
+                    "geographicRole": "admin1-iso-3166-2"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#000000"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 8,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "total-de-contratos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "sum(qtd_contratos)",
+                      "expression": "SUM(`qtd_contratos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "TOTAL DE CONTRATOS"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(qtd_contratos)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "all"
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#000000"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "3a4d7b49",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "sum(carteira_total)",
+                      "expression": "SUM(`carteira_total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "CARTEIRA DE CRÉDITO"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(carteira_total)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#000000"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "d5471ba5",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "avg(taxa_inadimplencia)",
+                      "expression": "AVG(`taxa_inadimplencia`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "TAXA INADIMPLÊNCIA MÉDIA",
+                "headerAlignment": "left"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg(taxa_inadimplencia)",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#000000"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "segmento",
+            "queries": [
+              {
+                "name": "dashboards/01f1958762161dbaac6e671e7bb222c8/datasets/01f1958860731d079aaa3c88864c0965_segmento",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "segmento",
+                      "expression": "`segmento`"
+                    },
+                    {
+                      "name": "segmento_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "SEGMENTO"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "segmento",
+                    "queryName": "dashboards/01f1958762161dbaac6e671e7bb222c8/datasets/01f1958860731d079aaa3c88864c0965_segmento"
+                  }
+                ]
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#000000"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "uf",
+            "queries": [
+              {
+                "name": "dashboards/01f1958762161dbaac6e671e7bb222c8/datasets/01f1958860731d079aaa3c88864c0965_uf",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "uf",
+                      "expression": "`uf`"
+                    },
+                    {
+                      "name": "uf_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "UF",
+                "headerAlignment": "left"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "uf",
+                    "queryName": "dashboards/01f1958762161dbaac6e671e7bb222c8/datasets/01f1958860731d079aaa3c88864c0965_uf"
+                  }
+                ]
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#000000"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 4,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "07addd49",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "sum(ticket_medio)",
+                      "expression": "SUM(`ticket_medio`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "VALOR MÉDIO DOS CONTRATOS"
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(ticket_medio)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#050505"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "taxa",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "segmento",
+                      "expression": "`segmento`"
+                    },
+                    {
+                      "name": "avg(taxa_inadimplencia)",
+                      "expression": "AVG(`taxa_inadimplencia`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "TAXA MÉDIA DE INADIMPLÊNCIA POR SEGMENTO"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "segmento",
+                  "displayName": "Segmento",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "avg(taxa_inadimplencia)",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "displayName": "Inadimplência Média",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#030303"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 6,
+            "width": 8,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "share",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "sum(carteira_total)",
+                      "expression": "SUM(`carteira_total`)"
+                    },
+                    {
+                      "name": "segmento",
+                      "expression": "`segmento`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "CARTEIRA CRÉDITO POR SEGMENTO"
+              },
+              "widgetType": "funnel",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(carteira_total)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "BRL",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "displayName": "Carteira de Crédito"
+                },
+                "y": {
+                  "fieldName": "segmento",
+                  "displayName": "Segmento",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x-reversed"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "light": "#000000"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 4,
+            "height": 3
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "5b8007e5",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "segmento",
+            "queries": [
+              {
+                "name": "dashboards/01f1958762161dbaac6e671e7bb222c8/datasets/01f1958860731d079aaa3c88864c0965_segmento",
+                "query": {
+                  "datasetName": "a0acfe41",
+                  "fields": [
+                    {
+                      "name": "segmento",
+                      "expression": "`segmento`"
+                    },
+                    {
+                      "name": "segmento_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "SEGMENTO"
+              },
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "segmento",
+                    "queryName": "dashboards/01f1958762161dbaac6e671e7bb222c8/datasets/01f1958860731d079aaa3c88864c0965_segmento"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "cc31dc23",
+      "displayName": "Vintage Analyses",
+      "layout": [
+        {
+          "widget": {
+            "name": "ebe7de2f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "2c13920a",
+                  "fields": [
+                    {
+                      "name": "mes_originacao",
+                      "expression": "`mes_originacao`"
+                    },
+                    {
+                      "name": "mob",
+                      "expression": "`mob`"
+                    },
+                    {
+                      "name": "taxa_inadimplencia_acumulada",
+                      "expression": "`taxa_inadimplencia_acumulada`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "mob",
+                  "displayName": "Idade do Crédito (Meses)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "taxa_inadimplencia_acumulada",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "displayName": "Taxa Inadimplência",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "mes_originacao",
+                  "legend": {
+                    "title": "Mês Originação"
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
